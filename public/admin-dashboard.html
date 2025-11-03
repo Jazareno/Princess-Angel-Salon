@@ -655,12 +655,12 @@
   const user = JSON.parse(localStorage.getItem('loggedInUser'));
   if (!user || user.role !== 'admin') {
     alert('Access denied. Admins only.');
-    location.href = '/LoginRegister.html';
+    location.href = '/loginRegister.html';
   }
 
   function logout() {
     localStorage.clear();
-    location.href = '/LoginRegister.html';
+    location.href = '/loginRegister.html';
   }
 
   // ✅ Add this here

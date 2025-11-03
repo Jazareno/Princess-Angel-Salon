@@ -524,7 +524,7 @@ async function loadAppointments() {
 
     // Initialize dashboard on page load
     window.addEventListener('DOMContentLoaded', () => {
-      if (!user) return (window.location.href = 'LoginRegister.html');
+      if (!user) return (window.location.href = 'loginRegister.html');
 
       // Set welcome text
       document.getElementById('welcome-text').textContent = `Welcome, ${user.name}!`;
