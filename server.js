@@ -8,6 +8,69 @@ const PORT = 3000;
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// Function to send appointment reminder email
+async function sendAppointmentReminder(email, appointmentDetails) {
+  try {
+    const subject = "Upcoming Appointment Reminder - Princess Angel Salon";
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #c71585;">Appointment Reminder</h2>
+        <p>Dear Valued Customer,</p>
+        <p>This is a friendly reminder about your upcoming appointment:</p>
+        <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin: 20px 0;">
+          <ul style="list-style: none; padding: 0;">
+            <li style="margin: 10px 0;"><strong>Time:</strong> ${appointmentDetails.time}</li>
+            <li style="margin: 10px 0;"><strong>Service:</strong> ${appointmentDetails.service}</li>
+            <li style="margin: 10px 0;"><strong>Stylist:</strong> ${appointmentDetails.stylist}</li>
+          </ul>
+        </div>
+        <p>Please arrive 10 minutes before your scheduled time.</p>
+        <p>Looking forward to seeing you!</p>
+        <p>Best regards,<br><strong>Princess Angel Salon Team</strong></p>
+      </div>
+    `;
+
+    const { data, error } = await resend.emails.send({
+      from: 'Princess Angel Salon <onboarding@resend.dev>',
+      to: email,
+      subject: subject,
+      html: html
+    });
+
+    if (error) {
+      console.error('📧 Reminder email error:', error);
+      return false;
+    }
+    
+    console.log('📧 Reminder email sent successfully');
+    return true;
+  } catch (error) {
+    console.error('📧 Reminder email error:', error);
+    return false;
+  }
+}
+
+// Function to schedule appointment reminders
+function scheduleAppointmentReminders(email, appointmentDetails) {
+  const appointmentTime = new Date(`${appointmentDetails.date}T${appointmentDetails.time}`);
+  const now = new Date();
+  
+  // Schedule reminders for 24 hours and 1 hour before the appointment
+  const reminderTimes = [
+    appointmentTime.getTime() - (24 * 60 * 60 * 1000), // 24 hours before
+    appointmentTime.getTime() - (60 * 60 * 1000)       // 1 hour before
+  ];
+
+  reminderTimes.forEach(reminderTime => {
+    const delay = reminderTime - now.getTime();
+    if (delay > 0) {
+      setTimeout(() => {
+        sendAppointmentReminder(email, appointmentDetails);
+      }, delay);
+    }
+  });
+}
+
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
@@ -53,10 +116,18 @@ app.post('/api/login', (req, res) => {
   }
 });*/
 // Book Appointment (with past-date + config checks)
-app.post('/api/book-appointment', (req, res) => {
+app.post('/api/book-appointment', async (req, res) => {
   const { userId, service, stylist, date, time } = req.body;
 
   try {
+    // Get user email for notifications
+    const userStmt = db.prepare('SELECT email FROM users WHERE id = ?');
+    const user = userStmt.get(userId);
+    
+    if (!user) {
+      return res.json({ success: false, message: "User not found." });
+    }
+
     const appointmentDateTime = new Date(`${date}T${time}`);
     const now = new Date();
 
@@ -109,6 +180,16 @@ if (config.salon_hours) {
       VALUES (?, ?, ?, ?, ?, 'Pending')
     `);
     stmt.run(userId, service, stylist, date, time);
+
+    // Schedule appointment reminders
+    const appointmentDetails = {
+      date,
+      time,
+      service,
+      stylist
+    };
+    
+    scheduleAppointmentReminders(user.email, appointmentDetails);
 
     res.json({ success: true, message: "Booking created successfully" });
 
