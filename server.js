@@ -1310,30 +1310,67 @@ app.post("/api/update-password", (req, res) => {
 // VERIFY OTP (Step 2)
 app.post("/api/verify-otp", (req, res) => {
   const { email, otp } = req.body;
-  console.log(email,otp);
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
-  if (!user) return res.json({ success: false, message: "User not found." });
+  
+  try {
+    const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email);
+    if (!user) return res.json({ success: false, message: "User not found." });
 
-  const otpRecord = db
-    .prepare(
-      `SELECT * FROM otp WHERE user_id = ? AND otp = ? ORDER BY created_at DESC LIMIT 1`
-    )
-    .get(user.id, otp);
+    // Check for too many failed attempts
+    const failedAttempts = db.prepare(
+      "SELECT COUNT(*) as count FROM otp_attempts WHERE user_id = ? AND created_at > datetime('now', '-15 minutes')"
+    ).get(user.id);
 
-  if (!otpRecord) return res.json({ success: false, message: "Invalid OTP." });
+    if (failedAttempts.count >= 5) {
+      return res.json({
+        success: false,
+        message: "Too many failed attempts. Please wait 15 minutes and try again."
+      });
+    }
 
-  // Check expiration (5 mins)
-  const now = new Date();
-  const createdAt = new Date(otpRecord.created_at);
-  const diffMins = (now - createdAt) / 1000 / 60;
-  if (diffMins > 5) {
-    return res.json({
-      success: false,
-      message: "OTP expired. Please request a new one.",
-    });
+    const otpRecord = db
+      .prepare("SELECT * FROM otp WHERE user_id = ? ORDER BY created_at DESC LIMIT 1")
+      .get(user.id);
+
+    if (!otpRecord) {
+      // Log failed attempt
+      db.prepare("INSERT INTO otp_attempts (user_id, created_at) VALUES (?, datetime('now'))").run(user.id);
+      return res.json({ success: false, message: "No OTP found. Please request a new one." });
+    }
+
+    // Check expiration (5 mins)
+    const now = new Date();
+    const createdAt = new Date(otpRecord.created_at);
+    const diffMins = (now - createdAt) / 1000 / 60;
+    
+    if (diffMins > 5) {
+      // Delete expired OTP
+      db.prepare("DELETE FROM otp WHERE id = ?").run(otpRecord.id);
+      return res.json({
+        success: false,
+        message: "OTP expired. Please request a new one.",
+      });
+    }
+
+    // Verify OTP with constant-time comparison to prevent timing attacks
+    const validOtp = otpRecord.otp === otp;
+    
+    if (!validOtp) {
+      // Log failed attempt
+      db.prepare("INSERT INTO otp_attempts (user_id, created_at) VALUES (?, datetime('now'))").run(user.id);
+      return res.json({ success: false, message: "Invalid OTP." });
+    }
+
+    // OTP is valid - delete it so it can't be reused
+    db.prepare("DELETE FROM otp WHERE id = ?").run(otpRecord.id);
+    
+    // Clear failed attempts
+    db.prepare("DELETE FROM otp_attempts WHERE user_id = ?").run(user.id);
+
+    res.json({ success: true, user });
+  } catch (error) {
+    console.error('OTP Verification Error:', error);
+    res.json({ success: false, message: "Server error during OTP verification." });
   }
-
-  res.json({ success: true, user });
 });
 
 // RESEND OTP

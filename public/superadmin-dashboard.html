@@ -540,7 +540,7 @@ const btnEl = document.getElementById("toggleBtn");
 // Fetch current 2FA status on page load
 async function load2FAStatus() {
   try {
-    const res = await fetch("http://localhost:3000/api/security-status");
+    const res = await fetch("/api/security-status");
     const data = await res.json();
 
     const isEnabled = data.enabled === 1;

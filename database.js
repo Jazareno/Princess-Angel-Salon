@@ -183,6 +183,17 @@ db.prepare(`
     enabled INTEGER NOT NULL DEFAULT 0
   )
 `).run();
+
+// Create OTP attempts tracking table
+db.prepare(`
+  CREATE TABLE IF NOT EXISTS otp_attempts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )
+`).run();
+
 // Check if 2FA setting exists
 const existing = db
   .prepare("SELECT * FROM security_settings WHERE name = 'Two-Factor Authentication'")
