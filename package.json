@@ -19,6 +19,7 @@
     "jspdf": "^3.0.3",
     "jspdf-autotable": "^5.0.2",
     "nodemailer": "^7.0.9",
-    "pdfkit": "^0.17.2"
+    "pdfkit": "^0.17.2",
+    "resend": "^6.4.0"
   }
 }

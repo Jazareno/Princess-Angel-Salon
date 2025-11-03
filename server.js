@@ -2,9 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const db = require('./database');
+const { Resend } = require('resend');
 const app = express();
 const PORT = 3000;
-const nodemailer = require('nodemailer');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static('public'));
@@ -1051,29 +1054,29 @@ app.post("/update-security-setting", (req, res) => {
   }
 });
 
-// Create reusable transporter
-const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 465,
-  auth: {
-    user: "princessangelsalon123@gmail.com", // Gmail
-    pass: "rfng fyqn wrif ihjl", // App Password
-  },
-});
+// Helper function to send OTP using Resend
+async function sendOTPEmail(to, otp) {
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Princess Angel Salon <onboarding@resend.dev>',
+      to: to,
+      subject: 'Your OTP Code',
+      html: `<p>Your OTP code is <strong>${otp}</strong>.</p>
+             <p>Please do not share this with anyone.</p>
+             <p>It expires in 5 minutes.</p>`
+    });
 
-// Helper function to send OTP
-function sendOTPEmail(to, otp) {
-  const mailOptions = {
-    from: '"Princess Angel Salon" <princessangelsalon123@gmail.com>',
-    to,
-    subject: "Your OTP Code",
-    text: `Your OTP code is ${otp}. Please do not share this with anyone. It expires in 5 minutes.`,
-  };
-
-  transporter.sendMail(mailOptions, (error, info) => {
-    if (error) console.error("Error sending OTP email:", error);
-    else console.log("OTP email sent:", info.response);
-  });
+    if (error) {
+      console.error("Error sending OTP email:", error);
+      return false;
+    }
+    
+    console.log("OTP email sent:", data);
+    return true;
+  } catch (error) {
+    console.error("Error sending OTP email:", error);
+    return false;
+  }
 }
 /*
 app.post("/api/login", (req, res) => {
