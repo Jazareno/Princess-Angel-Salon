@@ -31,7 +31,7 @@ async function sendAppointmentReminder(email, appointmentDetails) {
     `;
 
     const { data, error } = await resend.emails.send({
-      from: 'Princess Angel Salon <onboarding@resend.dev>',
+      from: 'Princess Angel Salon <noreply@princessangelsalon.site>',
       to: email,
       subject: subject,
       html: html
@@ -1139,7 +1139,7 @@ app.post("/update-security-setting", (req, res) => {
 async function sendOTPEmail(to, otp) {
   try {
     const { data, error } = await resend.emails.send({
-      from: 'Princess Angel Salon <onboarding@resend.dev>',
+      from: 'Princess Angel Salon <noreply@princessangelsalon.site>',
       to: to,
       subject: 'Your OTP Code',
       html: `<p>Your OTP code is <strong>${otp}</strong>.</p>
