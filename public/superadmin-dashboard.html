@@ -562,8 +562,8 @@ async function toggleSetting(id) {
   statusEl.textContent = newEnabledState ? "Enabled" : "Disabled";
   btnEl.textContent = newEnabledState ? "Disable" : "Enable";
 
-  try {
-    const res = await fetch("http://localhost:3000/update-security-setting", {
+    try {
+    const res = await fetch("/update-security-setting", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, enabled: newEnabledState ? 1 : 0 })
