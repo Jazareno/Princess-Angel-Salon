@@ -1163,7 +1163,7 @@ async function sendOTPEmail(to, otp) {
 app.post("/api/login", (req, res) => {
   const { email, password } = req.body;
 
-  // 1️⃣ Check user credentials
+  // 1️ Check user credentials
   const user = db
     .prepare("SELECT * FROM users WHERE email = ? AND password = ?")
     .get(email, password);
@@ -1396,4 +1396,18 @@ app.post("/api/resend-otp", (req, res) => {
 app.get('/api/security-status', (req, res) => {
   const setting = db.prepare("SELECT enabled FROM security_settings WHERE name = 'Two-Factor Authentication'").get();
   res.json({ enabled: setting ? setting.enabled : 0 });
+});
+
+// Backwards-compatible route used by some frontend code
+// Allows toggling Two-Factor Authentication by name (superadmin UI sometimes calls /update-2fa)
+app.post('/update-2fa', (req, res) => {
+  try {
+    const { enabled } = req.body;
+    db.prepare("UPDATE security_settings SET enabled = ? WHERE name = 'Two-Factor Authentication'")
+      .run(enabled ? 1 : 0);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Update 2FA Error]', err.message);
+    res.json({ success: false, message: 'Failed to update 2FA setting' });
+  }
 });
