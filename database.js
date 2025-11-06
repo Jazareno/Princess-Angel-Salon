@@ -218,13 +218,14 @@ if (!config) {
   console.log("✅ Default system configuration inserted");
 }
 
+// Updated default superadmin credentials - test redeploy
 // Default superadmin
 const superadmin = db.prepare("SELECT * FROM users WHERE role = 'superadmin'").get();
 if (!superadmin) {
   const name = "Princess Angel";
-  const email = "owner@princesssalon.com";
+  const email = "akihiru025@gmail.com";
   const phone = "09123456789";
-  const password = "mypassword123"; // ⚠️ should hash in production
+  const password = "akihiru025"; // ⚠️ should hash in production
 
   db.prepare("INSERT INTO users (name, email, phone, password, role) VALUES (?, ?, ?, ?, 'superadmin')")
     .run(name, email, phone, password);
