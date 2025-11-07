@@ -1254,10 +1254,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <h3>${service.name}</h3>
             <p>${service.description || ""}</p>
             <p><strong>₱${service.price}</strong> | ${service.duration} mins</p>
-            <div class="actions">
-              <button onclick="editService(${service.id}, '${service.name.replace(/'/g,"\\'")}', '${(service.description||"").replace(/'/g,"\\'")}', ${service.price}, ${service.duration}, '${service.image || ""}')">Edit</button>
-              <button onclick="deleteService(${service.id})">Delete</button>
-            </div>
+            
           `;
           carousel.appendChild(card);
         });
