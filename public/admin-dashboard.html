@@ -91,7 +91,6 @@
           <th>Name</th>
           <th>Email</th>
           <th>Phone</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody id="customer-list"></tbody>
@@ -1254,7 +1253,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <h3>${service.name}</h3>
             <p>${service.description || ""}</p>
             <p><strong>₱${service.price}</strong> | ${service.duration} mins</p>
-            
+
           `;
           carousel.appendChild(card);
         });
