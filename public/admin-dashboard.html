@@ -390,6 +390,38 @@
 
 </script>
 
+<script>
+//  Carousel scroll function for both Services and Meet Our Stylists
+function scrollCarousel(carouselId, direction) {
+  const carousel = document.getElementById(carouselId);
+  if (!carousel) return;
+
+  const scrollAmount = 300; // adjust speed/distance of scroll
+  carousel.scrollBy({
+    left: scrollAmount * direction,
+    behavior: 'smooth'
+  });
+}
+
+//  Hook up Meet Our Stylists carousel buttons
+document.addEventListener("DOMContentLoaded", () => {
+  const meetLeft = document.getElementById("meet-carousel-left");
+  const meetRight = document.getElementById("meet-carousel-right");
+  const meetCarousel = document.getElementById("meet-stylists-carousel");
+
+  if (meetLeft && meetRight && meetCarousel) {
+    meetLeft.addEventListener("click", () => {
+      meetCarousel.scrollBy({ left: -300, behavior: "smooth" });
+    });
+
+    meetRight.addEventListener("click", () => {
+      meetCarousel.scrollBy({ left: 300, behavior: "smooth" });
+    });
+  }
+});
+
+</script>
+
 <style>
 /* Section styling */
 #meet-stylists {
@@ -1051,6 +1083,8 @@ async function markCompleted(app) {
         alert('Error saving availability');
       }
     });
+
+    
 // -------- SERVICE MANAGEMENT --------
 
   async function loadTotalBookingsToday() {
