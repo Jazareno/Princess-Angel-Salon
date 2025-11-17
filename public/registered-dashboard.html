@@ -483,9 +483,70 @@ async function loadAppointments() {
           loadAppointments();
           updateDashboardSummary();
           this.reset();
+          // Reset time availability display
+          document.getElementById('time').innerHTML = '<option value="">Select a Time</option>';
         } else alert(result.message || 'Booking failed.');
       } catch (err) { console.error(err); alert('Error booking appointment.'); }
     });
+
+    // Add event listeners to block unavailable times
+    const stylistSelect = document.getElementById('stylist');
+    const dateInput = document.getElementById('date');
+    const timeInput = document.getElementById('time');
+
+    async function updateAvailableTimes() {
+      const selectedStylist = stylistSelect.value;
+      const selectedDate = dateInput.value;
+
+      // Reset time input if either stylist or date is not selected
+      if (!selectedStylist || !selectedDate) {
+        timeInput.innerHTML = '<option value="">Select a Time</option>';
+        timeInput.disabled = true;
+        return;
+      }
+
+      timeInput.disabled = false;
+
+      try {
+        // Fetch booked times for the selected stylist and date
+        const res = await fetch(`/api/booked-times/${encodeURIComponent(selectedStylist)}/${encodeURIComponent(selectedDate)}`);
+        const result = await res.json();
+        
+        const bookedTimes = result.success ? result.bookedTimes : [];
+        
+        // Generate time options (30-minute intervals)
+        const timeOptions = [];
+        for (let hour = 9; hour < 18; hour++) {
+          for (let minute = 0; minute < 60; minute += 30) {
+            const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+            timeOptions.push(timeStr);
+          }
+        }
+
+        // Rebuild time select with disabled options for booked times
+        timeInput.innerHTML = '<option value="">Select a Time</option>';
+        timeOptions.forEach(timeStr => {
+          const option = document.createElement('option');
+          option.value = timeStr;
+          option.textContent = new Date(`2024-01-01T${timeStr}`).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+          
+          // Disable if this time is booked
+          if (bookedTimes.includes(timeStr)) {
+            option.disabled = true;
+            option.style.color = '#ccc';
+            option.textContent += ' (Booked)';
+          }
+          
+          timeInput.appendChild(option);
+        });
+      } catch (err) {
+        console.error('Error fetching booked times:', err);
+      }
+    }
+
+    // Update available times when stylist or date changes
+    stylistSelect.addEventListener('change', updateAvailableTimes);
+    dateInput.addEventListener('change', updateAvailableTimes);
 
     document.getElementById('feedback-form').addEventListener('submit', async function (e) {
       e.preventDefault();

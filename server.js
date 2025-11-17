@@ -199,6 +199,17 @@ if (config.salon_hours) {
   }
 }
 
+// 5️⃣ (NEW) Check if the same stylist already has an appointment at this date/time
+const existingStmt = db.prepare(`
+  SELECT COUNT(*) as count 
+  FROM appointments 
+  WHERE stylist = ? AND date = ? AND time = ? AND status != 'Cancelled'
+`);
+const { count: existingCount } = existingStmt.get(stylist, date, time);
+
+if (existingCount > 0) {
+  return res.json({ success: false, message: "This time slot is already booked with this stylist. Please choose another time." });
+}
 
     // 6️⃣ Compute totals for selected services (duration & price)
     let totalDuration = 0;
@@ -422,6 +433,23 @@ app.get('/api/stylists', (req, res) => {
   } catch (err) {
     console.error('[Public Get Stylists Error]', err.message);
     res.json({ success: false, message: 'Error fetching stylists' });
+  }
+});
+
+// Public: Get booked time slots for a stylist on a specific date
+app.get('/api/booked-times/:stylist/:date', (req, res) => {
+  try {
+    const { stylist, date } = req.params;
+    const bookedTimes = db.prepare(`
+      SELECT time FROM appointments 
+      WHERE stylist = ? AND date = ? AND status != 'Cancelled'
+      ORDER BY time ASC
+    `).all(stylist, date);
+    
+    res.json({ success: true, bookedTimes: bookedTimes.map(row => row.time) });
+  } catch (err) {
+    console.error('[Get Booked Times Error]', err.message);
+    res.json({ success: false, message: 'Error fetching booked times' });
   }
 });
 
