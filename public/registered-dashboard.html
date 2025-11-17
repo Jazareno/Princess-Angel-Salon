@@ -5,6 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>User Dashboard - Princess Angel Salon</title>
   <link rel="stylesheet" href="registered-dashboard.css" />
+    <style>
+    /* Improved styles for searchable multi-select used for services */
+    .multi-select { position: relative; max-width:380px; width:100%; box-sizing:border-box; margin:0.25rem 0 1rem 0; }
+    .ms-control { width:100%; text-align:left; padding:10px 12px; border:1px solid #e4a7b6; border-radius:6px; background:#fff; cursor:pointer; color:#333; font-weight:500; }
+    .ms-control:after { content:'\25BE'; float:right; color:#d64f6e; }
+  .ms-dropdown { position:absolute; left:0; right:0; background:#fff; border:1px solid rgba(214,79,110,0.15); border-radius:8px; margin-top:8px; box-shadow:0 10px 30px rgba(0,0,0,0.08); z-index:9999; display:none; }
+    .ms-dropdown.show { display:block; }
+    .ms-search { width:calc(100% - 16px); margin:10px; padding:8px; border:1px solid #f0d7dd; border-radius:6px; }
+    .ms-items { max-height:260px; overflow:auto; padding:6px 8px 12px 8px; }
+    .ms-item { padding:8px 6px; display:flex; align-items:center; gap:12px; justify-content:space-between; border-bottom:1px solid #faf0f2; }
+    .ms-item:last-child { border-bottom:0; }
+    .ms-item .left { display:flex; align-items:center; gap:10px; }
+    .ms-item .name { font-weight:500; color:#333; }
+    .ms-item .meta { color:#888; font-size:0.9rem; white-space:nowrap; }
+    .ms-item label { cursor:pointer; display:flex; align-items:center; gap:8px; }
+    /* Small adjustments for checkbox visuals */
+    .ms-item input[type="checkbox"] { transform:scale(1.05); }
+    /* Ensure control and dropdown match form spacing */
+  #book-form .ms-control, #book-form select, #book-form input { max-width:380px; }
+  /* Ensure booking card doesn't clip dropdown */
+  section.home-section { overflow: visible; }
+  </style>
 </head>
 <body>
 <header class="header-nav">
@@ -110,17 +132,17 @@
   <section id="book" class="home-section">
     <h2>Book an Appointment</h2>
     <form id="book-form">
-      <label>Service:</label>
-      <select id="service" required>
-        <option value="">Select a Service</option>
-        <option value="Haircut">Haircut</option>
-        <option value="Hair Color">Hair Color</option>
-        <option value="Hair Rebonding">Hair Rebonding</option>
-        <option value="Facial">Facial</option>
-        <option value="Makeup">Makeup</option>
-        <option value="Manicure">Manicure</option>
-        <option value="Pedicure">Pedicure</option>
-      </select>
+      <label>Services (choose one or more):</label>
+      <!-- Custom searchable multi-select for services (behaves like the stylist select) -->
+      <div id="services-list" class="multi-select">
+        <button type="button" class="ms-control" aria-haspopup="listbox" aria-expanded="false">Select services</button>
+        <div class="ms-dropdown" role="listbox" aria-hidden="true">
+          <input type="search" class="ms-search" placeholder="Filter services..." aria-label="Filter services" />
+          <div class="ms-items" tabindex="0">
+            <p style="color:#666; font-size:0.9rem;">Loading services...</p>
+          </div>
+        </div>
+      </div>
 
       <label>Stylist:</label>
       <select id="stylist" required>
@@ -232,6 +254,13 @@
       rescheduleId = null;
     }
 
+    // Logout helper used by header/sidebar logout links
+    function logout() {
+      try { localStorage.removeItem('loggedInUser'); } catch (e) { /* ignore */ }
+      // Redirect to the login/register page
+      window.location.href = 'loginRegister.html';
+    }
+
 async function loadAppointments() {
   try {
     const res = await fetch(`/api/user-appointments/${user.id}`);
@@ -311,25 +340,39 @@ async function loadAppointments() {
     async function loadStylists() {
       const stylistSelect = document.getElementById('stylist');
       const feedbackStylistSelect = document.getElementById('stylistName');
-      stylistSelect.innerHTML = '<option value="">Loading stylists...</option>';
-      feedbackStylistSelect.innerHTML = '<option value="">Loading stylists...</option>';
+      if (stylistSelect) stylistSelect.innerHTML = '<option value="">Loading stylists...</option>';
+      if (feedbackStylistSelect) feedbackStylistSelect.innerHTML = '<option value="">Loading stylists...</option>';
       try {
         const res = await fetch('/api/stylists');
         const result = await res.json();
-        if (result.success) {
-          stylistSelect.innerHTML = '<option value="">Select a Stylist</option>';
-          feedbackStylistSelect.innerHTML = '<option value="">Select a Stylist</option>';
+        if (result && result.success && Array.isArray(result.stylists)) {
+          if (stylistSelect) stylistSelect.innerHTML = '<option value="">Select a Stylist</option>';
+          if (feedbackStylistSelect) feedbackStylistSelect.innerHTML = '<option value="">Select a Stylist</option>';
           result.stylists.forEach(stylist => {
             const option1 = document.createElement('option');
             option1.value = stylist.name;
             option1.textContent = stylist.name;
-            stylistSelect.appendChild(option1);
-            const option2 = option1.cloneNode(true);
-            feedbackStylistSelect.appendChild(option2);
+            if (stylistSelect) stylistSelect.appendChild(option1);
+            if (feedbackStylistSelect) {
+              const option2 = option1.cloneNode(true);
+              feedbackStylistSelect.appendChild(option2);
+            }
           });
         } else {
-          stylistSelect.innerHTML = '<option value="">No stylists available</option>';
-          feedbackStylistSelect.innerHTML = '<option value="">No stylists available</option>';
+          // Fallback: small static list so the UI remains usable
+          const fallback = ['gab','lumaad','Test Stylist'];
+          if (stylistSelect) {
+            stylistSelect.innerHTML = '<option value="">Select a Stylist</option>';
+            fallback.forEach(name => {
+              const opt = document.createElement('option'); opt.value = name; opt.textContent = name; stylistSelect.appendChild(opt);
+            });
+          }
+          if (feedbackStylistSelect) {
+            feedbackStylistSelect.innerHTML = '<option value="">Select a Stylist</option>';
+            fallback.forEach(name => {
+              const opt = document.createElement('option'); opt.value = name; opt.textContent = name; feedbackStylistSelect.appendChild(opt);
+            });
+          }
         }
       } catch (err) { console.error(err); stylistSelect.innerHTML = feedbackStylistSelect.innerHTML = '<option value="">Error loading stylists</option>'; }
     }
@@ -419,15 +462,20 @@ async function loadAppointments() {
 
     document.getElementById('book-form').addEventListener('submit', async function (e) {
       e.preventDefault();
-      const service = document.getElementById('service').value;
+      // Collect selected services (checkboxes)
+      const serviceCheckboxes = document.querySelectorAll('#services-list input[name="services"]:checked');
+      const services = Array.from(serviceCheckboxes).map(cb => cb.value);
+      const service = services.length === 1 ? services[0] : null; // keep legacy single-service variable optional
       const stylist = document.getElementById('stylist').value;
       const date = document.getElementById('date').value;
       const time = document.getElementById('time').value;
+      if (!services || services.length === 0) return alert('Please select at least one service.');
       try {
         const res = await fetch('/api/book-appointment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id, service, stylist, date, time })
+          // send services array; backend will accept array or legacy single service
+          body: JSON.stringify({ userId: user.id, services, service, stylist, date, time })
         });
         const result = await res.json();
         if (result.success) {
@@ -498,53 +546,91 @@ async function loadAppointments() {
       } catch (err) { console.error(err); alert('Error changing password.'); }
     });
 
-    function logout() {
-      localStorage.removeItem('loggedInUser');
-      window.location.replace('index.html');
+    async function loadServicesForBooking() {
+      const container = document.getElementById('services-list');
+      // Hardcoded service list as requested
+      const services = [
+        { id: 1, name: 'Haircut', price: 200, duration: 30 },
+        { id: 2, name: 'Hair Color', price: 200, duration: 30 },
+        { id: 3, name: 'Hair Rebond', price: 200, duration: 30 },
+        { id: 4, name: 'Facial', price: 200, duration: 30 },
+        { id: 5, name: 'Make up', price: 200, duration: 30 },
+        { id: 6, name: 'Manicure', price: 200, duration: 30 },
+        { id: 7, name: 'Pedicure', price: 200, duration: 30 }
+      ];
+
+      // populate items area
+      const items = container.querySelector('.ms-items');
+      const searchInput = container.querySelector('.ms-search');
+      const control = container.querySelector('.ms-control');
+      const dropdown = container.querySelector('.ms-dropdown');
+      if (!items) return; // nothing to render into
+      items.innerHTML = '';
+
+      services.forEach(s => {
+        const id = `service_cb_${s.id}`;
+        const item = document.createElement('div');
+        item.className = 'ms-item';
+        item.innerHTML = `
+          <div class="left">
+            <label for="${id}">
+              <input type="checkbox" id="${id}" name="services" value="${s.name}">
+              <span class="name">${s.name}</span>
+            </label>
+          </div>
+          <div class="meta">₱${s.price} • ${s.duration}m</div>
+        `;
+        items.appendChild(item);
+      });
+
+      // helper to update control text based on selection
+      function updateControl() {
+        const checked = container.querySelectorAll('input[name="services"]:checked');
+        if (!checked || checked.length === 0) {
+          control.textContent = 'Select services';
+        } else if (checked.length <= 3) {
+          const names = Array.from(checked).map(c => c.value);
+          control.textContent = names.join(', ');
+        } else {
+          control.textContent = `${checked.length} services selected`;
+        }
+      }
+
+      // attach change listeners
+      items.querySelectorAll('input[name="services"]').forEach(cb => cb.addEventListener('change', updateControl));
+
+      // filtering
+      searchInput.value = '';
+      searchInput.addEventListener('input', () => {
+        const q = searchInput.value.trim().toLowerCase();
+        items.querySelectorAll('.ms-item').forEach(it => {
+          const name = it.querySelector('.name')?.textContent?.toLowerCase() || '';
+          it.style.display = name.includes(q) ? '' : 'none';
+        });
+      });
+
+      // control open/close
+      control.addEventListener('click', (e) => {
+        const open = dropdown.classList.toggle('show');
+        control.setAttribute('aria-expanded', open ? 'true' : 'false');
+        dropdown.setAttribute('aria-hidden', open ? 'false' : 'true');
+        if (open) searchInput.focus();
+      });
+
+      // close when clicking outside
+      document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+          dropdown.classList.remove('show');
+          control.setAttribute('aria-expanded', 'false');
+          dropdown.setAttribute('aria-hidden', 'true');
+        }
+      });
+
+      // initial update
+      updateControl();
     }
 
-    // Disable past dates & times
-    document.addEventListener("DOMContentLoaded", () => {
-      const dateInput = document.getElementById("date");
-      const timeInput = document.getElementById("time");
-      const rescheduleDateInput = document.getElementById("reschedule-date");
-      const rescheduleTimeInput = document.getElementById("reschedule-time");
-      const today = new Date().toISOString().split("T")[0];
-      if (dateInput) dateInput.min = today;
-      if (rescheduleDateInput) rescheduleDateInput.min = today;
-      function adjustMinTime(dateInput, timeInput) {
-        const selectedDate = dateInput.value;
-        const now = new Date();
-        if (selectedDate === now.toISOString().split("T")[0]) {
-          let hours = now.getHours();
-          let minutes = now.getMinutes();
-          minutes = Math.ceil(minutes / 15) * 15;
-          if (minutes === 60) { hours += 1; minutes = 0; }
-          timeInput.min = `${String(hours).padStart(2,"0")}:${String(minutes).padStart(2,"0")}`;
-        } else { timeInput.min = "00:00"; }
-      }
-      if (dateInput && timeInput) dateInput.addEventListener("change", () => adjustMinTime(dateInput, timeInput));
-      if (rescheduleDateInput && rescheduleTimeInput) rescheduleDateInput.addEventListener("change", () => adjustMinTime(rescheduleDateInput, rescheduleTimeInput));
-    });
-
-    // Initialize dashboard on page load
-    window.addEventListener('DOMContentLoaded', () => {
-      if (!user) return (window.location.href = 'loginRegister.html');
-
-      // Set welcome text
-      document.getElementById('welcome-text').textContent = `Welcome, ${user.name}!`;
-
-      // Populate profile fields
-      document.getElementById('name').value = user.name;
-      document.getElementById('email').value = user.email;
-      document.getElementById('phone').value = user.phone;
-
-      // Load data
-      loadAppointments();
-      loadStylists();
-      loadNotifications();
-      updateDashboardSummary();
-    });
+    // Load favorite stylists dynamically
 
     // Load favorite stylists dynamically
     async function loadFavoriteStylists() {
@@ -613,6 +699,24 @@ async function loadBookingHistory() {
 }
     // Call it on dashboard load
     window.addEventListener('DOMContentLoaded', loadBookingHistory);
+
+    // Main initializer: set welcome text, populate profile and load data
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!user) return (window.location.href = 'loginRegister.html');
+      // Set welcome text
+      const wt = document.getElementById('welcome-text'); if (wt) wt.textContent = `Welcome, ${user.name}!`;
+      // Populate profile fields
+      const nameInput = document.getElementById('name'); if (nameInput) nameInput.value = user.name || '';
+      const emailInput = document.getElementById('email'); if (emailInput) emailInput.value = user.email || '';
+      const phoneInput = document.getElementById('phone'); if (phoneInput) phoneInput.value = user.phone || '';
+
+      // Load data
+      loadAppointments();
+      loadStylists();
+      loadNotifications();
+      updateDashboardSummary();
+      loadServicesForBooking();
+    });
   </script>
 
 <script>
