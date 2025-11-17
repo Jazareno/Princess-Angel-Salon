@@ -242,5 +242,9 @@ ensureColumnExists('appointments', 'total_price', 'REAL');
 ensureColumnExists('users', 'created_at', 'TEXT');
 ensureColumnExists('feedback', 'stylist_id', 'INTEGER');
 ensureColumnExists('feedback', 'stylist', 'TEXT');
+// Add appointment reference columns to notifications
+ensureColumnExists('notifications', 'appointment_id', 'INTEGER');
+ensureColumnExists('notifications', 'appointment_date', 'TEXT');
+ensureColumnExists('notifications', 'appointment_time', 'TEXT');
 
 module.exports = db;
