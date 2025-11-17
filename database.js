@@ -236,6 +236,9 @@ if (!superadmin) {
 // ------------------- AUTO FIX MISSING COLUMNS -------------------
 ensureColumnExists('appointments', 'stylist_id', 'INTEGER');
 ensureColumnExists('appointments', 'stylist', 'TEXT');
+// Ensure we can store aggregated totals for multi-service bookings
+ensureColumnExists('appointments', 'total_duration', 'INTEGER');
+ensureColumnExists('appointments', 'total_price', 'REAL');
 ensureColumnExists('users', 'created_at', 'TEXT');
 ensureColumnExists('feedback', 'stylist_id', 'INTEGER');
 ensureColumnExists('feedback', 'stylist', 'TEXT');
