@@ -248,41 +248,51 @@
       }
     });
 
-   /* // LOGIN
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
 
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        });
-        const result = await res.json();
-        if (result.success) {
-          localStorage.setItem('loggedInUser', JSON.stringify(result.user));
-          const role = result.user.role;
-          if (role === 'admin') window.location.href = 'admin-dashboard.html';
-          else if (role === 'superadmin') window.location.href = 'superadmin-dashboard.html';
-          else window.location.href = 'registered-dashboard.html';
-        } else {
-          alert(result.message || 'Login failed.');
-        }
-      } catch (e) {
-        console.log(e.message);
-        alert('Login failed. Server error.');
-      }
-    });*/
 
     // REGISTER
     registerForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const name = document.getElementById('reg-name').value;
-      const email = emailInput.value;
-      const phone = phoneInput.value;
+      
+      // Validate form fields
+      const name = document.getElementById('reg-name').value.trim();
+      const email = emailInput.value.trim();
+      const phone = phoneInput.value.trim();
       const password = passwordInput.value;
+      const termsCheckbox = document.getElementById('terms');
+
+      // Check if all fields are filled
+      if (!name || !email || !phone || !password) {
+        alert('Please fill in all fields.');
+        return;
+      }
+
+      // Check email validation
+      if (!/^[\w.%+-]+@gmail\.com$/i.test(email)) {
+        alert('Email must be a Gmail address');
+        emailError.classList.remove('hidden');
+        return;
+      }
+
+      // Check phone validation
+      if (!/^09\d{9}$/.test(phone)) {
+        alert('Phone must be 11 digits starting with 09');
+        phoneError.classList.remove('hidden');
+        return;
+      }
+
+      // Check password validation
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(password)) {
+        alert('Password must be at least 8 characters, contain uppercase, lowercase, number, and special character');
+        passwordError.classList.remove('hidden');
+        return;
+      }
+
+      // Check terms and conditions
+      if (!termsCheckbox.checked) {
+        alert('You must agree to the Terms and Conditions');
+        return;
+      }
 
       try {
         const res = await fetch('/api/register', {
@@ -312,7 +322,8 @@
         } else {
           alert(result.error || result.message || 'Registration failed.');
         }
-      } catch {
+      } catch (err) {
+        console.error('Registration error:', err);
         alert('Registration failed. Server error.');
       }
     });
