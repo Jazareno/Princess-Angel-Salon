@@ -6,11 +6,28 @@ const { Resend } = require('resend');
 const app = express();
 const PORT = 3000;
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend only if an API key is present. This allows running the server
+// locally without a Resend API key (emails will be skipped but app remains functional).
+let resend = null;
+if (process.env.RESEND_API_KEY) {
+  try {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  } catch (err) {
+    console.warn('⚠️ Failed to initialize Resend client:', err.message);
+    resend = null;
+  }
+} else {
+  console.warn('ℹ️ RESEND_API_KEY not set — email sending is disabled.');
+}
 
 // Function to send appointment reminder email
 async function sendAppointmentReminder(email, appointmentDetails) {
   try {
+    if (!resend) {
+      // Email service not configured — log and return success so booking flow isn't blocked.
+      console.log('ℹ️ Skipping sending appointment reminder email (Resend not configured).', appointmentDetails);
+      return true;
+    }
     const subject = "Upcoming Appointment Reminder - Princess Angel Salon";
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -41,7 +58,7 @@ async function sendAppointmentReminder(email, appointmentDetails) {
       console.error('📧 Reminder email error:', error);
       return false;
     }
-    
+
     console.log('📧 Reminder email sent successfully');
     return true;
   } catch (error) {
@@ -90,7 +107,7 @@ app.post('/api/register', (req, res) => {
     if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
       res.json({ success: false, message: 'Registration failed. Email already exists.' });
     } else {
-      console.log(error);
+      console.log(err);
       res.json({ success: false, message: 'Registration failed. Server error.' });
     }
   }
@@ -117,9 +134,18 @@ app.post('/api/login', (req, res) => {
 });*/
 // Book Appointment (with past-date + config checks)
 app.post('/api/book-appointment', async (req, res) => {
-  const { userId, service, stylist, date, time } = req.body;
+  const { userId, service, services, stylist, date, time } = req.body;
 
   try {
+    // Accept either an array of services (new behavior) or legacy single 'service' string
+    let storedService = null;
+    if (Array.isArray(services) && services.length > 0) {
+      storedService = services.join(', ');
+    } else if (typeof service === 'string' && service.trim() !== '') {
+      storedService = service.trim();
+    }
+
+    if (!storedService) return res.json({ success: false, message: 'Please select at least one service.' });
     // Get user email for notifications
     const userStmt = db.prepare('SELECT email FROM users WHERE id = ?');
     const user = userStmt.get(userId);
@@ -174,24 +200,49 @@ if (config.salon_hours) {
 }
 
 
-    // 6️⃣ Insert booking if all checks pass
-    const stmt = db.prepare(`
-      INSERT INTO appointments (user_id, service, stylist, date, time, status)
-      VALUES (?, ?, ?, ?, ?, 'Pending')
-    `);
-    stmt.run(userId, service, stylist, date, time);
+    // 6️⃣ Compute totals for selected services (duration & price)
+    let totalDuration = 0;
+    let totalPrice = 0;
+    try {
+      if (Array.isArray(services) && services.length > 0) {
+        const placeholders = services.map(() => '?').join(',');
+        const svcStmt = db.prepare(`SELECT name, price, duration FROM services WHERE name IN (${placeholders})`);
+        const svcRows = svcStmt.all(...services);
+        svcRows.forEach(r => {
+          totalDuration += Number(r.duration || 0);
+          totalPrice += Number(r.price || 0);
+        });
+      } else if (typeof service === 'string' && service.trim() !== '') {
+        const row = db.prepare('SELECT name, price, duration FROM services WHERE name = ?').get(service.trim());
+        if (row) {
+          totalDuration = Number(row.duration || 0);
+          totalPrice = Number(row.price || 0);
+        }
+      }
+    } catch (err) {
+      console.warn('[Service Totals Warning]', err.message);
+    }
 
-    // Schedule appointment reminders
+    // 7️⃣ Insert booking including totals
+    const stmt = db.prepare(`
+      INSERT INTO appointments (user_id, service, stylist, date, time, total_duration, total_price, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending')
+    `);
+    stmt.run(userId, storedService, stylist, date, time, totalDuration, totalPrice);
+
+    // Schedule appointment reminders (use joined services string)
     const appointmentDetails = {
       date,
       time,
-      service,
-      stylist
+      service: storedService,
+      stylist,
+      totalDuration,
+      totalPrice
     };
-    
+
     scheduleAppointmentReminders(user.email, appointmentDetails);
 
-    res.json({ success: true, message: "Booking created successfully" });
+    res.json({ success: true, message: "Booking created successfully", totalDuration, totalPrice });
 
   } catch (err) {
     console.error('[Booking Error]', err.message);
@@ -206,7 +257,7 @@ if (config.salon_hours) {
 app.get('/api/admin/appointments', (req, res) => {
   try {
     const stmt = db.prepare(`
-      SELECT a.id, a.date, a.time, a.service, a.stylist, a.status, u.name AS customer_name
+      SELECT a.id, a.date, a.time, a.service, a.stylist, a.total_duration, a.total_price, a.status, u.name AS customer_name
       FROM appointments a
       JOIN users u ON a.user_id = u.id
       ORDER BY a.date ASC, a.time ASC
